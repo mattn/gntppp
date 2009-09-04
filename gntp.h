@@ -1,13 +1,14 @@
 #ifndef gntp_h
 #define gntp_h
 
-#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 0
 #include <sstream>
 #include <iostream>
 #include <string>
 #include <cryptopp/osrng.h>
 #include <cryptopp/files.h>
 #include <cryptopp/hex.h>
+#include <cryptopp/sha.h>
 #include <cryptopp/md5.h>
 #include <cryptopp/des.h>
 #include <cryptopp/aes.h>
@@ -16,6 +17,7 @@
 
 #include <asio.hpp>
 
+template<class CIPHER_TYPE = CryptoPP::DES, class HASH_TYPE = CryptoPP::MD5>
 class gntp {
 private:
   static inline std::string to_hex(CryptoPP::SecByteBlock& in) {
@@ -37,16 +39,15 @@ private:
 
     if (!password_.empty()) {
       // get digest of password+salt hex encoded
-      CryptoPP::SecByteBlock passtext(CryptoPP::Weak1::MD5::DIGESTSIZE);
-      CryptoPP::Weak1::MD5 hash;
+      CryptoPP::SecByteBlock passtext(HASH_TYPE::DIGESTSIZE);
+      HASH_TYPE hash;
       hash.Update((byte*)password_.c_str(), password_.size());
       hash.Update(salt.begin(), salt.size());
       hash.Final(passtext);
-      CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
+      CryptoPP::SecByteBlock digest(HASH_TYPE::DIGESTSIZE);
       hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
 
-      // initialize crypt
-      CryptoPP::CBC_Mode<CryptoPP::DES>::Encryption
+      class CryptoPP::CBC_Mode<CIPHER_TYPE>::Encryption
         encryptor(passtext.begin(), iv.size(), iv.begin());
 
       std::string cipher_text;
@@ -58,8 +59,8 @@ private:
 
       sock << "GNTP/1.0 "
         << method
-        << " DES:" << to_hex(iv)
-        << " MD5:" << to_hex(digest) << "." << to_hex(salt)
+        << " " << CIPHER_TYPE::StaticAlgorithmName() << ":" << to_hex(iv)
+        << " " << HASH_TYPE::StaticAlgorithmName() << ":" << to_hex(digest) << "." << to_hex(salt)
         << "\r\n"
         << cipher_text << "\r\n\r\n";
     } else {
