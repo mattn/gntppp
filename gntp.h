@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <stdexcept>
 #include <cryptopp/osrng.h>
 #include <cryptopp/files.h>
 #include <cryptopp/hex.h>
@@ -28,9 +29,9 @@ private:
     return out;
   }
 
-  void send(const char* method, std::stringstream& stm) {
+  void send(const char* method, std::stringstream& stm) throw (std::runtime_error) {
     asio::ip::tcp::iostream sock(hostname_, port_);
-	if (!sock) return;
+    if (!sock) throw std::range_error("can't connect to host");
 
     // initialize salt and iv
     CryptoPP::SecByteBlock salt(8), iv(8);
@@ -53,7 +54,7 @@ private:
       std::string cipher_text;
       CryptoPP::StringSource(stm.str(), true,
         new CryptoPP::StreamTransformationFilter(encryptor,
-        new CryptoPP::StringSink(cipher_text)
+          new CryptoPP::StringSink(cipher_text)
         ) // StreamTransformationFilter
       ); // StringSource
 
@@ -70,16 +71,19 @@ private:
         << stm.str() << "\r\n";
     }
 
+    std::string error;
     while (1) {
       std::string line;
-      if (!std::getline(sock, line)) {
-        break;
-      }
+      if (!std::getline(sock, line)) break;
+
       //std::cout << "[" << line << "]" << std::endl;
       if (line.find("GNTP/1.0 -ERROR") == 0)
-        throw "failed to register notification";
+        error = "unknown error";
+      if (line.find("Error-Description: ") == 0)
+        error = line.substr(19);
       if (line == "\r") break;
     }
+    if (!error.empty()) throw std::range_error(error);
   }
 
   std::string application_;
@@ -95,7 +99,7 @@ public:
     hostname_(hostname),
     port_(port) { }
 
-  void regist(const char* name) {
+  void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
     stm << "Application-Name: " << application_ << "\r\n";
     stm << "Notifications-Count: 1\r\n";
@@ -107,7 +111,7 @@ public:
     send("REGISTER", stm);
   }
 
-  void notify(const char* name, const char* title, const char* text, const char* icon = NULL) {
+  void notify(const char* name, const char* title, const char* text, const char* icon = NULL) throw (std::runtime_error) {
     std::stringstream stm;
     stm << "Application-Name: " << application_ << "\r\n";
     stm << "Notification-Name: " << name << "\r\n";
