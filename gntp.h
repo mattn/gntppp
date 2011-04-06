@@ -16,7 +16,7 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/modes.h>
 
-#include <asio.hpp>
+#include <boost/asio.hpp>
 
 class gntp {
 private:
@@ -29,30 +29,28 @@ private:
   }
 
   static std::string sanitize_name(std::string name) {
-	std::string::size_type n = 0;
-	while((n = name.find("-", n)) != std::string::npos)
-		name.erase(n, 1);
-	return name;
+    std::string::size_type n = 0;
+    while((n = name.find("-", n)) != std::string::npos)
+      name.erase(n, 1);
+    return name;
   }
 
-  static void recv(asio::ip::tcp::iostream& sock) throw (std::runtime_error) {
+  static void recv(boost::asio::ip::tcp::iostream& sock) throw (std::runtime_error) {
     std::string error;
     while (1) {
       std::string line;
       if (!std::getline(sock, line)) break;
 
       //std::cout << "[" << line << "]" << std::endl;
-      if (line.find("GNTP/1.0 -ERROR") == 0)
-        error = "unknown error";
-      if (line.find("Error-Description: ") == 0)
-        error = line.substr(19);
+      if (line.find("GNTP/1.0 -ERROR") == 0) error = "unknown error";
+      if (line.find("Error-Description: ") == 0) error = line.substr(19);
       if (line == "\r") break;
     }
     if (!error.empty()) throw std::range_error(error);
   }
 
   void send(const char* method, std::stringstream& stm) throw (std::runtime_error) {
-    asio::ip::tcp::iostream sock(hostname_, port_);
+    boost::asio::ip::tcp::iostream sock(hostname_, port_);
     if (!sock) throw std::range_error("can't connect to host");
 
     if (!password_.empty()) {
@@ -62,19 +60,19 @@ private:
 
       // get digest of password+salt hex encoded
       CryptoPP::SecByteBlock passtext(CryptoPP::Weak1::MD5::DIGESTSIZE);
-	  CryptoPP::Weak1::MD5 hash;
+      CryptoPP::Weak1::MD5 hash;
       hash.Update((byte*)password_.c_str(), password_.size());
       hash.Update(salt.begin(), salt.size());
       hash.Final(passtext);
       CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
-	  hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
+      hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
 
       sock << "GNTP/1.0 "
         << method
         << " NONE "
         << " " <<
-			sanitize_name(CryptoPP::Weak1::MD5::StaticAlgorithmName())
-			<< ":" << to_hex(digest) << "." << to_hex(salt)
+            sanitize_name(CryptoPP::Weak1::MD5::StaticAlgorithmName())
+            << ":" << to_hex(digest) << "." << to_hex(salt)
         << "\r\n"
         << stm.str() << "\r\n\r\n";
     } else {
@@ -83,12 +81,12 @@ private:
         << " NONE\r\n"
         << stm.str() << "\r\n";
     }
-	recv(sock);
+    recv(sock);
   }
 
   template<class CIPHER_TYPE, class HASH_TYPE>
   void send(const char* method, std::stringstream& stm) throw (std::runtime_error) {
-    asio::ip::tcp::iostream sock(hostname_, port_);
+    boost::asio::ip::tcp::iostream sock(hostname_, port_);
     if (!sock) throw std::range_error("can't connect to host");
 
     if (!password_.empty()) {
@@ -119,11 +117,11 @@ private:
       sock << "GNTP/1.0 "
         << method
         << " "
-			<< sanitize_name(CIPHER_TYPE::StaticAlgorithmName())
-			<< ":" << to_hex(iv)
+            << sanitize_name(CIPHER_TYPE::StaticAlgorithmName())
+            << ":" << to_hex(iv)
         << " "
-			<< sanitize_name(HASH_TYPE::StaticAlgorithmName())
-			<< ":" << to_hex(digest) << "." << to_hex(salt)
+            << sanitize_name(HASH_TYPE::StaticAlgorithmName())
+            << ":" << to_hex(digest) << "." << to_hex(salt)
         << "\r\n"
         << cipher_text << "\r\n\r\n";
     } else {
@@ -169,29 +167,31 @@ public:
 
   void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
-	make_regist(stm, name);
+    make_regist(stm, name);
     send("REGISTER", stm);
   }
 
   template<class CIPHER_TYPE, class HASH_TYPE>
   void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
-	make_regist(stm, name);
+    make_regist(stm, name);
     send<CIPHER_TYPE, HASH_TYPE>("REGISTER", stm);
   }
 
   void notify(const char* name, const char* title, const char* text, const char* icon = NULL) throw (std::runtime_error) {
     std::stringstream stm;
-	make_notify(stm, name, title, text, icon);
+    make_notify(stm, name, title, text, icon);
     send("NOTIFY", stm);
   }
 
   template<class CIPHER_TYPE, class HASH_TYPE>
   void notify(const char* name, const char* title, const char* text, const char* icon = NULL) throw (std::runtime_error) {
     std::stringstream stm;
-	make_notify(stm, name, title, text, icon);
+    make_notify(stm, name, title, text, icon);
     send<CIPHER_TYPE, HASH_TYPE>("NOTIFY", stm);
   }
 };
 
 #endif
+
+// vim:set et:
