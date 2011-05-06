@@ -151,10 +151,11 @@ private:
     stm << "\r\n";
   }
 
-  void make_notify(std::stringstream& stm, const char* name, const char* title, const char* text, const char* icon = NULL) {
+  void make_notify(std::stringstream& stm, const char* name, const char* title, const char* text, const char* icon = NULL, const char* url = NULL) {
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
     stm << "Notification-Name: " << sanitize_text(name) << "\r\n";
     if (icon) stm << "Notification-Icon: " << sanitize_text(icon) << "\r\n";
+    if (url) stm << "Notification-Callback-Target: " << sanitize_text(url) << "\r\n";
     stm << "Notification-Title: " << sanitize_text(title) << "\r\n";
     stm << "Notification-Text: " << sanitize_text(text) << "\r\n";
     stm << "\r\n";
@@ -186,16 +187,16 @@ public:
     send<CIPHER_TYPE, HASH_TYPE>("REGISTER", stm);
   }
 
-  void notify(const char* name, const char* title, const char* text, const char* icon = NULL) throw (std::runtime_error) {
+  void notify(const char* name, const char* title, const char* text, const char* icon = NULL, const char* url = NULL) throw (std::runtime_error) {
     std::stringstream stm;
-    make_notify(stm, name, title, text, icon);
+    make_notify(stm, name, title, text, icon, url);
     send("NOTIFY", stm);
   }
 
   template<class CIPHER_TYPE, class HASH_TYPE>
-  void notify(const char* name, const char* title, const char* text, const char* icon = NULL) throw (std::runtime_error) {
+  void notify(const char* name, const char* title, const char* text, const char* icon = NULL, const char* url = NULL) throw (std::runtime_error) {
     std::stringstream stm;
-    make_notify(stm, name, title, text, icon);
+    make_notify(stm, name, title, text, icon, url);
     send<CIPHER_TYPE, HASH_TYPE>("NOTIFY", stm);
   }
 };
