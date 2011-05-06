@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <stdexcept>
 #include <cryptopp/osrng.h>
 #include <cryptopp/files.h>
@@ -142,9 +143,6 @@ private:
   }
 
   void make_regist(std::stringstream& stm, const char* name) {
-    stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-    stm << "Notifications-Count: 1\r\n";
-    stm << "\r\n";
     stm << "Notification-Name: " << sanitize_text(name) << "\r\n";
     stm << "Notification-Display-Name: " << sanitize_text(name) << "\r\n";
     stm << "Notification-Enabled: True\r\n";
@@ -176,6 +174,9 @@ public:
 
   void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
+    stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
+    stm << "Notifications-Count: 1\r\n";
+    stm << "\r\n";
     make_regist(stm, name);
     send("REGISTER", stm);
   }
@@ -183,7 +184,23 @@ public:
   template<class CIPHER_TYPE, class HASH_TYPE>
   void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
+    stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
+    stm << "Notifications-Count: 1\r\n";
+    stm << "\r\n";
     make_regist(stm, name);
+    send<CIPHER_TYPE, HASH_TYPE>("REGISTER", stm);
+  }
+
+  template<class CIPHER_TYPE, class HASH_TYPE>
+  void regist(const std::vector<std::string> names) throw (std::runtime_error) {
+    std::stringstream stm;
+    stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
+    stm << "Notifications-Count: " << names.size() << "\r\n";
+    stm << "\r\n";
+    std::vector<std::string>::const_iterator it;
+    for (it = names.begin(); it != names.end(); it++) {
+      make_regist(stm, it->c_str());
+    }
     send<CIPHER_TYPE, HASH_TYPE>("REGISTER", stm);
   }
 
