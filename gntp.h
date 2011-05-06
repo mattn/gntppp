@@ -1,7 +1,8 @@
 #ifndef gntp_h
 #define gntp_h
 
-#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 0
+//#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 0
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -26,6 +27,13 @@ private:
     hex.Attach(new CryptoPP::StringSink(out));
     hex.PutMessageEnd(in.begin(), in.size());
     return out;
+  }
+
+  static std::string sanitize_text(std::string name) {
+    std::string::size_type n = 0;
+    while((n = name.find("\r\n", n)) != std::string::npos)
+      name.erase(n, 1);
+    return name;
   }
 
   static std::string sanitize_name(std::string name) {
@@ -134,21 +142,21 @@ private:
   }
 
   void make_regist(std::stringstream& stm, const char* name) {
-    stm << "Application-Name: " << application_ << "\r\n";
+    stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
     stm << "Notifications-Count: 1\r\n";
     stm << "\r\n";
-    stm << "Notification-Name: " << name << "\r\n";
-    stm << "Notification-Display-Name: " << name << "\r\n";
+    stm << "Notification-Name: " << sanitize_text(name) << "\r\n";
+    stm << "Notification-Display-Name: " << sanitize_text(name) << "\r\n";
     stm << "Notification-Enabled: True\r\n";
     stm << "\r\n";
   }
 
   void make_notify(std::stringstream& stm, const char* name, const char* title, const char* text, const char* icon = NULL) {
-    stm << "Application-Name: " << application_ << "\r\n";
-    stm << "Notification-Name: " << name << "\r\n";
-    if (icon) stm << "Notification-Icon: " << icon << "\r\n";
-    stm << "Notification-Title: " << title << "\r\n";
-    stm << "Notification-Text: " << text << "\r\n";
+    stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
+    stm << "Notification-Name: " << sanitize_text(name) << "\r\n";
+    if (icon) stm << "Notification-Icon: " << sanitize_text(icon) << "\r\n";
+    stm << "Notification-Title: " << sanitize_text(title) << "\r\n";
+    stm << "Notification-Text: " << sanitize_text(text) << "\r\n";
     stm << "\r\n";
   }
 
