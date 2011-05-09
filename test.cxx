@@ -18,7 +18,7 @@ int main(void) {
 			"http://mattn.kaoriya.net/images/logo.png",
 			"http://mattn.kaoriya.net/");
 
-	// NOTE: note that you should SHA256 for AES.
+    // NOTE: note that you should use SHA256 for AES. AES require long key size.
   } catch(const std::exception& e) {
     std::cerr << e.what() << std::endl;
   }
