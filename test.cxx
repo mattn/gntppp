@@ -5,7 +5,7 @@ using namespace CryptoPP::Weak1;
 
 int main(void) {
   try {
-    gntp client("my growl application", ""); // you should password
+    gntp client("my growl application", ""); // you should set password
 
     //client.regist("my-event");
     client.regist<DES, MD5>("my-event");
