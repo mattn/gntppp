@@ -172,12 +172,12 @@ public:
     password_(password),
     hostname_(hostname),
     port_(port),
-	icon_(icon){ }
+    icon_(icon) { }
 
   void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-	stm << "Application-Icon: " << sanitize_text(icon_) <<"\r\n";
+    stm << "Application-Icon: " << sanitize_text(icon_) << "\r\n";
     stm << "Notifications-Count: 1\r\n";
     stm << "\r\n";
     make_regist(stm, name);
@@ -187,7 +187,7 @@ public:
   void regist(const std::vector<std::string> names) throw (std::runtime_error) {
     std::stringstream stm;
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-	stm << "Application-Icon: " << sanitize_text(icon_) <<"\r\n";
+    stm << "Application-Icon: " << sanitize_text(icon_) << "\r\n";
     stm << "Notifications-Count: " << names.size() << "\r\n";
     stm << "\r\n";
     std::vector<std::string>::const_iterator it;
@@ -201,7 +201,7 @@ public:
   void regist(const char* name) throw (std::runtime_error) {
     std::stringstream stm;
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-	stm << "Application-Icon: " << sanitize_text(icon_) <<"\r\n";
+    stm << "Application-Icon: " << sanitize_text(icon_) << "\r\n";
     stm << "Notifications-Count: 1\r\n";
     stm << "\r\n";
     make_regist(stm, name);
@@ -212,7 +212,7 @@ public:
   void regist(const std::vector<std::string> names) throw (std::runtime_error) {
     std::stringstream stm;
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-	stm << "Application-Icon: " << sanitize_text(icon_) <<"\r\n";
+    stm << "Application-Icon: " << sanitize_text(icon_) << "\r\n";
     stm << "Notifications-Count: " << names.size() << "\r\n";
     stm << "\r\n";
     std::vector<std::string>::const_iterator it;
