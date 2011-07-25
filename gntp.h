@@ -99,7 +99,7 @@ public:
         std::string line;
         if (!std::getline(sock, line)) break;
 
-        std::cout << "[" << line << "]" << std::endl;
+        //std::cout << "[" << line << "]" << std::endl;
         if (line.find("GNTP/1.0 -ERROR") == 0) error = "unknown error";
         if (line.find("Error-Description: ") == 0) error = line.substr(19);
         if (line == "\r") break;
@@ -209,7 +209,7 @@ public:
     if (icon) stm << "Notification-Icon: " << sanitize_text(icon) << "\r\n";
     if (url){
         stm << "Notification-Callback-Target: " << sanitize_text(url) << "\r\n";
-    }else if(1/*callbackid*/){
+    }else if(callbackid){
         stm << "Notification-Callback-Context: "<< sanitize_text(callbackid)  <<"\r\n";
         stm << "Notification-Callback-Context-Type: string\r\n";
     }
