@@ -24,51 +24,57 @@
 
 class gntp {
 public:
-typedef void (*gntp_callback)(const int& id,const std::string& reason,const std::string& data) ;
+  typedef void (*callback)(const int& id, const std::string& reason,
+    const std::string& data) ;
+
 private:
-class callback_reciver{
-public:
-    boost::asio::ip::tcp::iostream sock;
-    boost::thread *thread;
-    gntp_callback callback;
-    callback_reciver(std::string host,std::string port,gntp_callback callback):
-    sock(host, port),
-        thread(NULL),
-        callback(callback)
-    {}
 
-    ~callback_reciver(){
-        if(thread)
-            thread->interrupt();
-        delete thread;
-        sock.close();
+  class callback_reciver {
+  private:
+    boost::asio::ip::tcp::iostream sock_;
+    boost::thread *thread_;
+    callback callback_;
+
+  public:
+
+    callback_reciver(std::string host, std::string port, callback callback)
+      : sock_(host, port), thread_(NULL), callback_(callback) {
     }
 
-    void wait_for_callback(){
-        std::string line;
-        int id = 0;
-        std::string result; 
-        std::string data;
-        while (std::getline(sock, line)) {
-            boost::trim(line);
-            //std::cout << "[" << line << "]" << std::endl;				
-            if (line.find("Notification-ID: ") == 0) id = atoi(line.substr(17).c_str());
-            else if(line.find("Notification-Callback-Result: ") == 0) result = line.substr(30);
-            else if(line.find("Notification-Callback-Context: ") == 0) data = line.substr(31);
-            else if(line == "\r")break;
-        }
-        //std::cout << "[id: " << id <<" reason: "<< result << " data: " << data << "]" << std::endl;
-        callback(id,result,data);
-        delete this;
+    ~callback_reciver() {
+      if (thread_) thread_->interrupt();
+      delete thread_;
+      sock_.close();
     }
 
-    void run(){
-        if(!callback)
-            return;
-        thread = new boost::thread( boost::bind(&callback_reciver::wait_for_callback, this) );
+    boost::asio::ip::tcp::iostream& sock() {
+      return sock_;
     }
-};
 
+    void wait_for_callback() {
+      std::string line;
+      int id = 0;
+      std::string result; 
+      std::string data;
+      while (std::getline(sock_, line)) {
+        boost::trim(line);
+        if (line.find("Notification-ID: ") == 0) id = atoi(line.substr(17).c_str());
+        else if (line.find("Notification-Callback-Result: ") == 0) result = line.substr(30);
+        else if (line.find("Notification-Callback-Context: ") == 0) data = line.substr(31);
+        else if (line == "\r")break;
+      }
+      callback_(id, result, data);
+      delete this;
+    }
+
+    void run() {
+      if (!callback_)
+        return;
+      thread_ = new boost::thread(
+        boost::bind(&callback_reciver::wait_for_callback, this)
+      );
+    }
+  };
 
   static inline std::string to_hex(CryptoPP::SecByteBlock& in) {
     std::string out;
@@ -93,105 +99,106 @@ public:
   }
 
 
-  static void recv(boost::asio::ip::tcp::iostream& sock) throw (std::runtime_error) {
+  static void recv(boost::asio::ip::tcp::iostream& sock)
+      throw (std::runtime_error) {
     std::string error;
     while (1) {
         std::string line;
         if (!std::getline(sock, line)) break;
-
-        //std::cout << "[" << line << "]" << std::endl;
         if (line.find("GNTP/1.0 -ERROR") == 0) error = "unknown error";
         if (line.find("Error-Description: ") == 0) error = line.substr(19);
         if (line == "\r") break;
     }
     if (!error.empty()) throw std::range_error(error);
-
-
   }
 
-  callback_reciver * send(const char* method, std::stringstream& stm) throw (std::runtime_error) {
-    callback_reciver *cbr = new callback_reciver(hostname_, port_,callback_);
-    if (!cbr->sock) throw std::range_error("can't connect to host");
+  callback_reciver * send(const char* method, std::stringstream& stm)
+      throw (std::runtime_error) {
+
+    callback_reciver *cbr = new callback_reciver(hostname_, port_, callback_);
+    if (!cbr->sock()) throw std::range_error("can't connect to host");
 
     if (!password_.empty()) {
-        // initialize salt and iv
-        CryptoPP::SecByteBlock salt(8);
-        rng.GenerateBlock(salt.begin(), salt.size());
+      // initialize salt and iv
+      CryptoPP::SecByteBlock salt(8);
+      rng_.GenerateBlock(salt.begin(), salt.size());
 
-        // get digest of password+salt hex encoded
-        CryptoPP::SecByteBlock passtext(CryptoPP::Weak1::MD5::DIGESTSIZE);
-        CryptoPP::Weak1::MD5 hash;
-        hash.Update((byte*)password_.c_str(), password_.size());
-        hash.Update(salt.begin(), salt.size());
-        hash.Final(passtext);
-        CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
-        hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
+      // get digest of password+salt hex encoded
+      CryptoPP::SecByteBlock passtext(CryptoPP::Weak1::MD5::DIGESTSIZE);
+      CryptoPP::Weak1::MD5 hash;
+      hash.Update((byte*)password_.c_str(), password_.size());
+      hash.Update(salt.begin(), salt.size());
+      hash.Final(passtext);
+      CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
+      hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
 
-        cbr->sock << "GNTP/1.0 "
-            << method
-            << " NONE "
-            << " " <<
-            sanitize_name(CryptoPP::Weak1::MD5::StaticAlgorithmName())
-            << ":" << to_hex(digest) << "." << to_hex(salt)
-            << "\r\n"
-            << stm.str() << "\r\n\r\n";
+      cbr->sock() << "GNTP/1.0 "
+        << method
+        << " NONE "
+        << " " <<
+        sanitize_name(CryptoPP::Weak1::MD5::StaticAlgorithmName())
+        << ":" << to_hex(digest) << "." << to_hex(salt)
+        << "\r\n"
+        << stm.str() << "\r\n\r\n";
     } else {
-        cbr->sock << "GNTP/1.0 "
-            << method
-            << " NONE\r\n"
-            << stm.str() << "\r\n";
+      cbr->sock() << "GNTP/1.0 "
+        << method
+        << " NONE\r\n"
+        << stm.str() << "\r\n";
     }
-    recv(cbr->sock);
+    recv(cbr->sock());
     return cbr;
   }
 
   template<class CIPHER_TYPE, class HASH_TYPE>
-  callback_reciver *send(const char* method, std::stringstream& stm) throw (std::runtime_error) {
-    callback_reciver *cbr = new callback_reciver(hostname_, port_,callback_);
-    if (!cbr->sock) throw std::range_error("can't connect to host");
+  callback_reciver *send(const char* method, std::stringstream& stm)
+      throw (std::runtime_error) {
+
+    callback_reciver *cbr = new callback_reciver(hostname_, port_, callback_);
+    if (!cbr->sock()) throw std::range_error("can't connect to host");
 
     if (!password_.empty()) {
-        // initialize salt and iv
-        CryptoPP::SecByteBlock salt(HASH_TYPE::DIGESTSIZE), iv(CIPHER_TYPE::BLOCKSIZE);
-        rng.GenerateBlock(salt.begin(), salt.size());
-        rng.GenerateBlock(iv.begin(), iv.size());
+      // initialize salt and iv
+      CryptoPP::SecByteBlock salt(HASH_TYPE::DIGESTSIZE), iv(CIPHER_TYPE::BLOCKSIZE);
+      rng_.GenerateBlock(salt.begin(), salt.size());
+      rng_.GenerateBlock(iv.begin(), iv.size());
 
-        // get digest of password+salt hex encoded
-        CryptoPP::SecByteBlock passtext(HASH_TYPE::DIGESTSIZE);
-        HASH_TYPE hash;
-        hash.Update((byte*)password_.c_str(), password_.size());
-        hash.Update(salt.begin(), salt.size());
-        hash.Final(passtext);
-        CryptoPP::SecByteBlock digest(HASH_TYPE::DIGESTSIZE);
-        hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
+      // get digest of password+salt hex encoded
+      CryptoPP::SecByteBlock passtext(HASH_TYPE::DIGESTSIZE);
+      HASH_TYPE hash;
+      hash.Update((byte*)password_.c_str(), password_.size());
+      hash.Update(salt.begin(), salt.size());
+      hash.Final(passtext);
+      CryptoPP::SecByteBlock digest(HASH_TYPE::DIGESTSIZE);
+      hash.CalculateDigest(digest.begin(), passtext.begin(), passtext.size());
 
-        class CryptoPP::CBC_Mode<CIPHER_TYPE>::Encryption
-            encryptor(passtext.begin(), iv.size(), iv.begin());
+      class CryptoPP::CBC_Mode<CIPHER_TYPE>::Encryption
+        encryptor(passtext.begin(), iv.size(), iv.begin());
 
-        std::string cipher_text;
-        CryptoPP::StringSource(stm.str(), true,
-            new CryptoPP::StreamTransformationFilter(encryptor,
-            new CryptoPP::StringSink(cipher_text)
-            ) // StreamTransformationFilter
-            ); // StringSource
+      std::string cipher_text;
+      CryptoPP::StringSource(stm.str(), true,
+        new CryptoPP::StreamTransformationFilter(encryptor,
+          new CryptoPP::StringSink(cipher_text)
+        ) // StreamTransformationFilter
+      ); // StringSource
 
-        cbr->sock << "GNTP/1.0 "
-            << method
-            << " "
-            << sanitize_name(CIPHER_TYPE::StaticAlgorithmName())
-            << ":" << to_hex(iv)
-            << " "
-            << sanitize_name(HASH_TYPE::StaticAlgorithmName())
-            << ":" << to_hex(digest) << "." << to_hex(salt)
-            << "\r\n"
-            << cipher_text << "\r\n\r\n";
+      cbr->sock() << "GNTP/1.0 "
+        << method
+        << " "
+        << sanitize_name(CIPHER_TYPE::StaticAlgorithmName())
+        << ":" << to_hex(iv)
+        << " "
+        << sanitize_name(HASH_TYPE::StaticAlgorithmName())
+        << ":" << to_hex(digest) << "." << to_hex(salt)
+        << "\r\n"
+        << cipher_text << "\r\n\r\n";
     } else {
-        cbr->sock << "GNTP/1.0 "
-            << method
-            << " NONE\r\n"
-            << stm.str() << "\r\n";
+      cbr->sock() << "GNTP/1.0 "
+        << method
+        << " NONE\r\n"
+        << stm.str() << "\r\n";
     }
-    recv(cbr->sock);
+    recv(cbr->sock());
     return cbr;
   }
 
@@ -202,16 +209,19 @@ public:
     stm << "\r\n";
   }
 
-  void make_notify(std::stringstream& stm, const char* name, const int id,const char* title, const char* text, const char* icon = NULL, const char* url = NULL,const char *callbackid = NULL) {
+  void make_notify(std::stringstream& stm, const char* name, const char* title,
+      const char* text, const char* icon = NULL,
+      const char* url = NULL, const int id = -1,
+      const char *callbackid = NULL) {
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
     stm << "Notification-Name: " << sanitize_text(name) << "\r\n";
-    stm << "Notification-ID: " << id <<"\r\n";
+    if (id != -1) stm << "Notification-ID: " << id <<"\r\n";
     if (icon) stm << "Notification-Icon: " << sanitize_text(icon) << "\r\n";
-    if (url){
-        stm << "Notification-Callback-Target: " << sanitize_text(url) << "\r\n";
-    }else if(callbackid){
-        stm << "Notification-Callback-Context: "<< sanitize_text(callbackid)  <<"\r\n";
-        stm << "Notification-Callback-Context-Type: string\r\n";
+    if (url) {
+      stm << "Notification-Callback-Target: " << sanitize_text(url) << "\r\n";
+    } else if (callbackid) {
+      stm << "Notification-Callback-Context: "<< sanitize_text(callbackid)  <<"\r\n";
+      stm << "Notification-Callback-Context-Type: string\r\n";
     }
     stm << "Notification-Title: " << sanitize_text(title) << "\r\n";
     stm << "Notification-Text: " << sanitize_text(text) << "\r\n";
@@ -223,22 +233,19 @@ public:
   std::string port_;
   std::string password_;
   std::string icon_;
-  CryptoPP::AutoSeededRandomPool rng;
-  gntp_callback callback_;
+  CryptoPP::AutoSeededRandomPool rng_;
+  callback callback_;
 
 public:
 
-  gntp(std::string application = "gntp-send", std::string icon = "" ,std::string password = "",
-     std::string hostname = "localhost", std::string port = "23053") :
-  application_(application),
-    password_(password),
-    hostname_(hostname),
-    port_(port),
-    icon_(icon),
-    callback_(NULL){ }
+  gntp(std::string application = "gntp-send", std::string icon = "",
+    std::string password = "",
+    std::string hostname = "localhost", std::string port = "23053")
+      : application_(application), password_(password), hostname_(hostname),
+        port_(port), icon_(icon), callback_(NULL) {
+  } 
 
-
-  void set_gntp_callback(gntp_callback callback){
+  void set_gntp_callback(callback callback) {
     callback_ = callback;
   }
 
@@ -261,7 +268,7 @@ public:
     stm << "\r\n";
     std::vector<std::string>::const_iterator it;
     for (it = names.begin(); it != names.end(); it++) {
-        make_regist(stm, it->c_str());
+      make_regist(stm, it->c_str());
     }
     callback_reciver *cbr = send("REGISTER", stm);
     delete cbr;
@@ -288,23 +295,29 @@ public:
     stm << "\r\n";
     std::vector<std::string>::const_iterator it;
     for (it = names.begin(); it != names.end(); it++) {
-        make_regist(stm, it->c_str());
+      make_regist(stm, it->c_str());
     }
     callback_reciver *cbr = send<CIPHER_TYPE, HASH_TYPE>("REGISTER", stm);
     delete cbr;
   }
 
-  void notify(const char* name,const int id, const char* title, const char* text, const char* icon = NULL, const char* url = NULL,const char *callbackid = NULL) throw (std::runtime_error) {
+  void notify(const char* name, const char* title, const char* text,
+      const char* icon = NULL, const char* url = NULL,
+      const int id = -1, const char *callbackid = NULL)
+        throw (std::runtime_error) {
     std::stringstream stm;
-    make_notify(stm, name, id, title, text, icon, url,callbackid);
+    make_notify(stm, name, title, text, icon, url, id, callbackid);
     callback_reciver *cbr = send("NOTIFY", stm);
     cbr->run();
   }
 
   template<class CIPHER_TYPE, class HASH_TYPE>
-  void notify(const char* name,const int id,  const char* title, const char* text, const char* icon = NULL, const char* url = NULL,const char *callbackid = NULL) throw (std::runtime_error) {
+  void notify(const char* name, const char* title, const char* text,
+      const char* icon = NULL, const char* url = NULL,
+      const int id = -1, const char *callbackid = NULL)
+        throw (std::runtime_error) {
     std::stringstream stm;
-    make_notify(stm, name, id, title, text, icon, url,callbackid);
+    make_notify(stm, name, title, text, icon, url, id, callbackid);
     callback_reciver *cbr = send<CIPHER_TYPE, HASH_TYPE>("NOTIFY", stm);
     cbr->run();
   }
