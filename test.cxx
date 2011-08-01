@@ -14,9 +14,9 @@ int main(void) {
     client.notify<DES, SHA256>(
       "my-event",
       "通知",
-      "こんにちわ\r\n世界"
-      //"http://mattn.kaoriya.net/images/logo.png"
-      //"http://mattn.kaoriya.net/");
+      "こんにちわ\r\n世界",
+      "http://mattn.kaoriya.net/images/logo.png",
+      "http://mattn.kaoriya.net/"
       );
 
     // NOTE: note that you should use SHA256 for AES. AES require long key size.
