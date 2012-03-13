@@ -5,6 +5,7 @@
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <sstream>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <stdexcept>
@@ -213,6 +214,23 @@ private:
       const char* text, const char* icon = NULL,
       const char* url = NULL, const int id = -1,
       const char *callbackid = NULL) {
+    std::string identifier;
+    std::vector<char> bin;
+    std::string icon_rs = "";
+    if (icon) {
+      std::ifstream fin(icon, std::ios::in | std::ios::binary);
+      if (fin) {
+        do { char ch = fin.get(); bin.push_back(ch); } while (fin.good());
+        CryptoPP::SecByteBlock binhash(CryptoPP::Weak1::MD5::DIGESTSIZE);
+        CryptoPP::Weak1::MD5 hash;
+        hash.Update((byte*)bin.data(), bin.size());
+        hash.Final(binhash);
+        CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
+        hash.CalculateDigest(digest.begin(), binhash.begin(), binhash.size());
+        icon_rs = std::string("x-growl-resource://") + to_hex(digest);
+        icon = icon_rs.c_str();
+      }
+    }
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
     stm << "Notification-Name: " << sanitize_text(name) << "\r\n";
     if (id != -1) stm << "Notification-ID: " << id <<"\r\n";
@@ -226,6 +244,13 @@ private:
     stm << "Notification-Title: " << sanitize_text(title) << "\r\n";
     stm << "Notification-Text: " << sanitize_text(text) << "\r\n";
     stm << "\r\n";
+
+    if (!bin.empty()) {
+      stm << "Identifier: " << icon_rs.substr(19) << "\r\n";
+      stm << "Length: " << bin.size() << "\r\n\r\n";
+      stm.write(bin.data(), bin.size());
+      stm << "\r\n\r\n";
+    }
   }
 
   std::string application_;
@@ -250,25 +275,71 @@ public:
   }
 
   void regist(const char* name) throw (std::runtime_error) {
+    std::string identifier;
+    std::vector<char> bin;
+    std::string icon = icon_;
+    if (!icon.empty()) {
+      std::ifstream fin(icon.c_str(), std::ios::in | std::ios::binary);
+      if (fin) {
+        do { char ch = fin.get(); bin.push_back(ch); } while (fin.good());
+        CryptoPP::SecByteBlock binhash(CryptoPP::Weak1::MD5::DIGESTSIZE);
+        CryptoPP::Weak1::MD5 hash;
+        hash.Update((byte*)bin.data(), bin.size());
+        hash.Final(binhash);
+        CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
+        hash.CalculateDigest(digest.begin(), binhash.begin(), binhash.size());
+        icon = std::string("x-growl-resource://") + to_hex(digest);
+      }
+    }
+
     std::stringstream stm;
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-    stm << "Application-Icon: " << sanitize_text(icon_) <<"\r\n";
+    stm << "Application-Icon: " << sanitize_text(icon) <<"\r\n";
     stm << "Notifications-Count: 1\r\n";
     stm << "\r\n";
     make_regist(stm, name);
+    if (!bin.empty()) {
+      stm << "Identifier: " << icon.substr(19) << "\r\n";
+      stm << "Length: " << bin.size() << "\r\n\r\n";
+      stm.write(bin.data(), bin.size());
+      stm << "\r\n\r\n";
+    }
     callback_reciver *cbr = send("REGISTER", stm);
     delete cbr;
   }
 
   void regist(const std::vector<std::string> names) throw (std::runtime_error) {
+    std::string identifier;
+    std::vector<char> bin;
+    std::string icon = icon_;
+    if (!icon.empty()) {
+      std::ifstream fin(icon.c_str(), std::ios::in | std::ios::binary);
+      if (fin) {
+        do { char ch = fin.get(); bin.push_back(ch); } while (fin.good());
+        CryptoPP::SecByteBlock binhash(CryptoPP::Weak1::MD5::DIGESTSIZE);
+        CryptoPP::Weak1::MD5 hash;
+        hash.Update((byte*)bin.data(), bin.size());
+        hash.Final(binhash);
+        CryptoPP::SecByteBlock digest(CryptoPP::Weak1::MD5::DIGESTSIZE);
+        hash.CalculateDigest(digest.begin(), binhash.begin(), binhash.size());
+        icon = std::string("x-growl-resource://") + to_hex(digest);
+      }
+    }
+
     std::stringstream stm;
     stm << "Application-Name: " << sanitize_text(application_) << "\r\n";
-    stm << "Application-Icon: " << sanitize_text(icon_) <<"\r\n";
+    stm << "Application-Icon: " << sanitize_text(icon) <<"\r\n";
     stm << "Notifications-Count: " << names.size() << "\r\n";
     stm << "\r\n";
     std::vector<std::string>::const_iterator it;
     for (it = names.begin(); it != names.end(); it++) {
       make_regist(stm, it->c_str());
+    }
+    if (!bin.empty()) {
+      stm << "Identifier: " << icon_.substr(19) << "\r\n";
+      stm << "Length: " << bin.size() << "\r\n\r\n";
+      stm.write(bin.data(), bin.size());
+      stm << "\r\n\r\n";
     }
     callback_reciver *cbr = send("REGISTER", stm);
     delete cbr;
